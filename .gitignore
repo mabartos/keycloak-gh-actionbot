@@ -1,0 +1,8 @@
+# IntelliJ
+.idea
+
+# node
+node_modules
+
+# dist
+dist/package.json
