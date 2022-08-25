@@ -1,0 +1,13 @@
+name: Keycloak Bot
+description: Bot reacting on comments
+inputs:
+  github_token:
+    description: GITHUB_TOKEN or a repo scoped PAT.
+    required: true
+  debug:
+    description: Log additional information the console
+    required: false
+    default: "false"
+runs:
+  using: node16
+  main: dist/index.js
