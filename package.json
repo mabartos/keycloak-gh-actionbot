@@ -1,6 +1,6 @@
 {
   "name": "keycloak-bot",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "main": "dist/index.js",
   "scripts": {
     "dist": "npx -p @vercel/ncc ncc build index.js",
