@@ -71,7 +71,13 @@ async function run() {
       })
     ).check_runs;
 
+    let buildJobId;
+
     for (const check of check_runs) {
+        if (check.name === "build") {
+            buildJobId = check.id;
+        }
+
       if (check.conclusion === "failure") {
         if (debug) {
           console.log("Check:", check);
@@ -88,6 +94,8 @@ async function run() {
         if (debug) {
           console.log("Job:", job);
         }
+
+        await checkKcArtifactsArePresent(octokit, context, buildJobId, check);
 
         unwrapResult(
           await octokit.rest.actions.reRunWorkflowFailedJobs({
@@ -116,6 +124,53 @@ run().catch((err) => {
   console.error(err);
   core.setFailed("Unexpected error");
 });
+
+function sleep(seconds) {
+  return new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+}
+
+async function checkKcArtifactsArePresent(octokit, context, buildJobId, check) {
+  if (buildJobId && check.id !== buildJobId) {
+    const keycloakArtifact = unwrapResult(
+      await octokit.rest.actions.listWorkflowRunArtifacts({
+        owner: context.payload.repository.owner.login,
+        repo: context.payload.repository.name,
+        run_id: check.run_id,
+      })
+    ).filter((f) => f.name === "keycloak-artifacts.zip");
+
+    if (!keycloakArtifact) {
+      console.info(
+        "Keycloak artifacts are not present anymore. The build job will be executed."
+      );
+
+      await octokit.rest.actions.reRunJobForWorkflowRun({
+        owner: context.payload.repository.owner.login,
+        repo: context.payload.repository.name,
+        job_id: buildJobId,
+      });
+
+      let buildJob = async () =>
+        unwrapResult(
+          await octokit.rest.actions.getJobForWorkflowRun({
+            owner: context.payload.repository.owner.login,
+            repo: context.payload.repository.name,
+            job_id: buildJobId,
+          })
+        );
+
+      while (buildJob.conclusion !== "success") {
+        console.info("Waiting for completion of Build job...");
+        // Polling may not be the best solution for that,...
+        await sleep(30);
+        // Is it possible to use it this way?!
+        buildJob = await buildJob();
+
+        // Add here some timeout?!
+      }
+    }
+  }
+}
 
 function unwrapResult(response) {
   if (response.status === 200) {
